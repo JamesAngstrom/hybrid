@@ -1,0 +1,9 @@
+[package]
+name = "hybrid"
+version = "0.1.0"
+authors = ["James Angstrom"]
+
+[dependencies]
+amethyst = "0.9"
+gilrs = "0.6.1"
+serde = "1.0.80"
