@@ -1,14 +1,11 @@
 extern crate amethyst;
 extern crate gilrs;
-#[macro_use]
-extern crate serde;
 
 mod hybrid;
 mod systems;
 
 use amethyst::{
     core::transform::TransformBundle,
-    input::InputBundle,
     prelude::*,
     ecs::prelude::*,
     ecs::shred::ResourceId,
@@ -86,14 +83,14 @@ fn main() -> amethyst::Result<()> {
     let game_data = GameDataBuilder::default()
         .with(PrefabLoaderSystem::<BasicScenePrefab<Vec<PosNormTex>>>::default(), "", &[])
         .with_bundle(RenderBundle::new(pipe, Some(config)))?
-        .with_bundle(TransformBundle::new())?;
+        .with_bundle(TransformBundle::new())?
+        .with(systems::BallSystem, "ball_system", &[]);
     let mut game = CoreApplication::<_, gilrs::Event, PadEventReader>::new(assets_dir, Hybrid, game_data)?;
     game.run();
 
     Ok(())
 }
 
-#[derive(Deserialize)]
 pub struct Ball {
     pub velocity: [f32; 2]
 }

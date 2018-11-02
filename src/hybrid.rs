@@ -1,14 +1,22 @@
 use amethyst::{
     prelude::*,
+    ecs::prelude::*,
     core::Transform,
     core::cgmath::{Vector3, Deg},
     shrev::EventChannel,
     assets::{Loader},
-    utils::scene::BasicScenePrefab,
     renderer::{Rgba, Projection, Camera, PosNormTex, Material, MaterialDefaults, ObjFormat, Light, PointLight},
 };
 
 use gilrs::Event;
+
+pub struct Ball {
+    pub velocity: [f32; 2]
+}
+
+impl Component for Ball {
+    type Storage = DenseVecStorage<Self>;
+}
 
 pub struct Hybrid;
 
@@ -45,6 +53,9 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
             .with(mesh)
             .with(mtl)
             .with(trans)
+            .with(Ball {
+                velocity: [0.0, 0.0]
+            })
             .build();
 
         world.add_resource(
