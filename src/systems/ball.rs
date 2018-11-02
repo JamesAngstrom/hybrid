@@ -1,23 +1,44 @@
+use std::ops::Deref;
+
 use amethyst::{
     ecs::prelude::*,
     core::Transform,
     shrev::EventChannel,
 };
-use gilrs::Event;
+use gilrs::{Event, Button::*};
+use gilrs::ev::EventType::*;
 
 use hybrid::Ball;
+use hybrid::Score;
 
-pub struct BallSystem;
+pub struct BallSystem {
+    pub reader: Option<ReaderId<Event>>,
+}
 
 impl<'s> System<'s> for BallSystem {
     type SystemData = (
         ReadStorage<'s, Ball>,
         WriteStorage<'s, Transform>,
-        Read<'s, EventChannel<Event>>
+        Write<'s, Vec<Event>>
     );
 
-    fn run(&mut self, (balls, mut transforms, input): Self::SystemData) {
+    fn setup(&mut self, res: &mut Resources) {
+        Self::SystemData::setup(res);
+        self.reader = None;
+    }
+
+    fn run(&mut self, (balls, mut transforms, mut events): Self::SystemData) {
         for (_ball, mut transform) in (&balls, &mut transforms).join() {
+
+            for event in events.drain(..) {
+                println!("Recieved {:?}", event);
+                match event {
+                    Event { id: _, event: ButtonPressed(South, _), time: _ } =>
+                        transform.translation.x -= 1.0,
+                    _ => ()
+                }
+            };
+
             transform.translation.x += 0.01
         }
     }

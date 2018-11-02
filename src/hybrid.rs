@@ -18,6 +18,11 @@ impl Component for Ball {
     type Storage = DenseVecStorage<Self>;
 }
 
+#[derive(Default)]
+pub struct Score {
+    pub score: i32,
+}
+
 pub struct Hybrid;
 
 impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
@@ -48,6 +53,14 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         let mut trans = Transform::default();
         trans.translation = Vector3::new(-5.0, 0.0, 0.0);
 
+        world.add_resource(
+            Score { score: 0 },
+        );
+
+        world.add_resource(
+            Vec::<Event>::new(),
+        );
+
         world
             .create_entity()
             .with(mesh)
@@ -58,9 +71,6 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
             })
             .build();
 
-        world.add_resource(
-            EventChannel::<Event>::new(),
-        )
     }
 
     fn handle_event(
@@ -68,8 +78,10 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         data: StateData<GameData>,
         event: Event
     ) -> Trans<GameData<'a, 'b>, Event> {
-        let mut channel = data.world.write_resource::<EventChannel<Event>>();
-        channel.single_write(event);
+        let mut score = data.world.write_resource::<Score>();
+        let mut events = data.world.write_resource::<Vec<Event>>();
+        events.push(event);
+
         println!("{:?}", event);
         Trans::None
     }

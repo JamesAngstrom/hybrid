@@ -84,17 +84,9 @@ fn main() -> amethyst::Result<()> {
         .with(PrefabLoaderSystem::<BasicScenePrefab<Vec<PosNormTex>>>::default(), "", &[])
         .with_bundle(RenderBundle::new(pipe, Some(config)))?
         .with_bundle(TransformBundle::new())?
-        .with(systems::BallSystem, "ball_system", &[]);
+        .with(systems::BallSystem { reader: None }, "ball_system", &[]);
     let mut game = CoreApplication::<_, gilrs::Event, PadEventReader>::new(assets_dir, Hybrid, game_data)?;
     game.run();
 
     Ok(())
-}
-
-pub struct Ball {
-    pub velocity: [f32; 2]
-}
-
-impl Component for Ball {
-    type Storage = DenseVecStorage<Self>;
 }
