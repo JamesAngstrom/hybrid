@@ -1,15 +1,11 @@
-use std::ops::Deref;
-
 use amethyst::{
     ecs::prelude::*,
     core::Transform,
-    shrev::EventChannel,
 };
 use gilrs::{Event, Button::*};
 use gilrs::ev::EventType::*;
 
 use hybrid::Ball;
-use hybrid::Score;
 
 pub struct BallSystem {
     pub reader: Option<ReaderId<Event>>,

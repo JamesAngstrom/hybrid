@@ -3,9 +3,8 @@ use amethyst::{
     ecs::prelude::*,
     core::Transform,
     core::cgmath::{Vector3, Deg},
-    shrev::EventChannel,
     assets::{Loader},
-    renderer::{Rgba, Projection, Camera, PosNormTex, Material, MaterialDefaults, ObjFormat, Light, PointLight},
+    renderer::{Rgba, Projection, Camera, Material, MaterialDefaults, ObjFormat, Light, PointLight},
 };
 
 use gilrs::Event;
@@ -16,11 +15,6 @@ pub struct Ball {
 
 impl Component for Ball {
     type Storage = DenseVecStorage<Self>;
-}
-
-#[derive(Default)]
-pub struct Score {
-    pub score: i32,
 }
 
 pub struct Hybrid;
@@ -54,10 +48,6 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         trans.translation = Vector3::new(-5.0, 0.0, 0.0);
 
         world.add_resource(
-            Score { score: 0 },
-        );
-
-        world.add_resource(
             Vec::<Event>::new(),
         );
 
@@ -78,7 +68,6 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         data: StateData<GameData>,
         event: Event
     ) -> Trans<GameData<'a, 'b>, Event> {
-        let mut score = data.world.write_resource::<Score>();
         let mut events = data.world.write_resource::<Vec<Event>>();
         events.push(event);
 
@@ -86,7 +75,7 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         Trans::None
     }
 
-    fn update(&mut self, mut data: StateData<GameData>) -> Trans<GameData<'a, 'b>, Event> {
+    fn update(&mut self, data: StateData<GameData>) -> Trans<GameData<'a, 'b>, Event> {
         data.data.update(&data.world);
         Trans::None
     }
