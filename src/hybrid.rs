@@ -2,6 +2,7 @@ use amethyst::{
     prelude::*,
     ecs::prelude::*,
     core::Transform,
+    core::cgmath::prelude::InnerSpace,
     core::cgmath::{Vector3, Deg},
     assets::{Loader},
     renderer::{MeshHandle, Rgba, Projection, PosNormTex, Camera, Material, MaterialDefaults, ObjFormat, Light, PointLight},
@@ -82,17 +83,34 @@ impl BicubicPatch {
         sum
     }
 
+    // Rasterize the patch into a res * res grid
     fn rasterize(&self, res: i32) -> Vec<PosNormTex> {
         let mut vec = Vec::new();
         for row in 0..res {
             for col in 0..res {
-                for (r, c) in [(0.0, 0.0), (0.0, 1.0), (1.0, 1.0)].iter() {
-                    let u = (row as f32 + r) / res as f32;
-                    let v = (col as f32 + c) / res as f32;
+                // Generate two triangles for each square in the grid
+                for (rt, ct) in [(0.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0), (1.0, 0.0), (1.0, 1.0)].iter() {
+                    let u = (row as f32 + rt) / res as f32;
+                    let v = (col as f32 + ct) / res as f32;
+
                     let p = self.pos(u, v);
+
+                    // Compute a normal using two nearby points
+                    let delta_u = u - (0.5 / res as f32);
+                    let delta_v = v - (0.5 / res as f32);
+                    let p_u = self.pos(delta_u.abs(), v);
+                    let p_v = self.pos(u, delta_v.abs());
+
+                    // We need to flip some normals near the edge
+                    let normal = if (delta_u < 0.0) && (delta_v >= 0.0) || (delta_u >= 0.0) && (delta_v < 0.0) {
+                        (p - p_u).cross(p - p_v).normalize_to(-1.0)
+                    } else {
+                        (p - p_u).cross(p - p_v).normalize_to(1.0)
+                    };
+
                     vec.push(PosNormTex {
                         position: p.into(),
-                        normal: [0.0, 0.0, 0.1],
+                        normal: normal.into(),
                         tex_coord: [u, v]
                     })
                 }
