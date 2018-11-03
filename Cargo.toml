@@ -6,4 +6,6 @@ authors = ["James Angstrom"]
 [dependencies]
 amethyst = "0.9"
 gilrs = "0.6.1"
-serde = "1.0.80"
+
+[profile.release]
+opt-level = 3
