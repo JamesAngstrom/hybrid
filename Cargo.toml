@@ -6,6 +6,8 @@ authors = ["James Angstrom"]
 [dependencies]
 amethyst = "0.9"
 gilrs = "0.6.1"
+nalgebra-glm = "0.1.0"
+rand = "0.5.5"
 
 [profile.release]
 opt-level = 3

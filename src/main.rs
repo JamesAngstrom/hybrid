@@ -1,5 +1,6 @@
 extern crate amethyst;
 extern crate gilrs;
+extern crate rand;
 
 mod hybrid;
 mod systems;
