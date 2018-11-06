@@ -1,10 +1,13 @@
-extern crate nalgebra_glm as glm;
 
 use amethyst::{
     renderer::{PosNormTex}
 };
 
 use rand::{thread_rng, Rng};
+
+use glm;
+use nalgebra::geometry::{Point2, Point3};
+use ncollide3d::shape::{TriMesh};
 
 #[derive(Clone, Copy)]
 pub enum Dir8 {
@@ -22,29 +25,36 @@ use self::Dir8::*;
 #[derive(Clone, Copy)]
 pub struct ControlPlane {
     pos: glm::Vec3,
-    rotation: glm::Quat
+    rotation: glm::Quat,
+    north: f32,
+    east: f32,
+    south: f32,
+    west: f32
 }
 
 impl ControlPlane {
     pub fn new() -> Self {
-        let mut rng = thread_rng();
-
         ControlPlane {
             pos: glm::vec3(0.0, 0.0, 0.0),
-            rotation: glm::quat_identity()
+            rotation: glm::quat_identity(),
+            // All 0.3 gives sensible results
+            north: 0.9,
+            east: 0.3,
+            south: -0.2,
+            west: -0.3,
         }
     }
 
     pub fn point(&self, dir : Dir8) -> glm::Vec3 {
         let (x, y) = match dir {
-            North => (0.0, 0.3),
-            NorthEast => (0.3, 0.3),
-            East => (0.3, 0.0),
-            SouthEast => (0.3, -0.3),
-            South => (0.0, -0.3),
-            SouthWest => (-0.3, -0.3),
-            West => (-0.3, 0.0),
-            NorthWest => (-0.3, 0.3)
+            North => (0.0, self.north),
+            NorthEast => (self.east, self.north),
+            East => (self.east, 0.0),
+            SouthEast => (self.east, self.south),
+            South => (0.0, self.south),
+            SouthWest => (self.west, self.south),
+            West => (self.west, 0.0),
+            NorthWest => (self.west, self.north)
         };
 
         glm::quat_cross_vec(&self.rotation, &glm::vec3(x, y, 0.0)) + self.pos
@@ -143,8 +153,26 @@ impl BicubicPatch {
         sum
     }
 
+    pub fn normal(&self, res: i32, u: f32, v: f32) -> glm::Vec3 {
+        let p = self.pos(u, v);
+
+        // Compute a normal using two nearby points
+        let delta_u = u - (0.5 / res as f32);
+        let delta_v = v - (0.5 / res as f32);
+        let p_u = self.pos(if delta_u < 0.0 { u + (0.5 / res as f32) } else { delta_u }, v);
+        let p_v = self.pos(u, if delta_v < 0.0 { v + (0.5 / res as f32) } else { delta_v });
+
+        // We need to flip some normals near the edge
+        if (delta_u < 0.0) && (delta_v >= 0.0) || (delta_u >= 0.0) && (delta_v < 0.0) {
+            (p - p_u).cross(&(p - p_v)).normalize() * -1.0
+        } else {
+            (p - p_u).cross(&(p - p_v)).normalize()
+        }
+    }
+
     // Rasterize the patch into a res * res grid
-    pub fn rasterize(&self, res: i32) -> Vec<PosNormTex> {
+    pub fn rasterize_with<F, A>(&self, res: i32, f : F) -> Vec<A>
+    where F: Fn(glm::Vec3, glm::Vec3, f32, f32) -> A {
         let mut vec = Vec::new();
         for row in 0..res {
             for col in 0..res {
@@ -154,33 +182,41 @@ impl BicubicPatch {
                     let v = (col as f32 + ct) / res as f32;
 
                     let p = self.pos(u, v);
+                    let normal = self.normal(32, u, v);
 
-                    // Compute a normal using two nearby points
-                    let delta_u = u - (0.5 / res as f32);
-                    let delta_v = v - (0.5 / res as f32);
-                    let p_u = self.pos(delta_u.abs(), v);
-                    let p_v = self.pos(u, delta_v.abs());
-
-                    // We need to flip some normals near the edge
-                    let normal = if (delta_u < 0.0) && (delta_v >= 0.0) || (delta_u >= 0.0) && (delta_v < 0.0) {
-                        (p - p_u).cross(&(p - p_v)).normalize() * -1.0
-                    } else {
-                        (p - p_u).cross(&(p - p_v)).normalize()
-                    };
-
-                    vec.push(PosNormTex {
-                        position: p.into(),
-                        normal: normal.into(),
-                        tex_coord: [u, v]
-                    })
+                    vec.push(f(p, normal, u, v))
                 }
             }
         };
         vec
     }
+
+    pub fn rasterize(&self, res: i32) -> Vec<PosNormTex> {
+        self.rasterize_with(res, |p, n, u, v| PosNormTex { position: p.into(), normal: n.into(), tex_coord: [u, v] })
+    }
+
+    // TODO: pass a more general translation + scale here
+    pub fn collision_mesh(&self, res: i32, scale: f32) -> TriMesh<f32> {
+        let mut points = Vec::new();
+        let mut i: usize = 0;
+        let mut indices = Vec::new();
+        let mut uvs = Vec::new();
+
+        for (p, u, v) in self.rasterize_with(res, |p, _, u, v| (p, u, v)) {
+            points.push(Point3::new(scale * p.x, scale * p.y, scale * p.z));
+            if i % 3 == 0 {
+                println!("Triangle: {}", i);
+                indices.push(Point3::new(i, i + 1, i + 2));
+            };
+            i = i + 1;
+            uvs.push(Point2::new(u, v))
+        };
+
+        TriMesh::new(points, indices, Some(uvs))
+    }
 }
 
-const SIZE: usize = 4;
+const SIZE: usize = 6;
 
 pub struct ControlSurface {
     pub controls: [[ControlPlane; SIZE]; SIZE]
@@ -198,7 +234,13 @@ impl ControlSurface {
                 let q = glm::quat_rotate_normalized_axis(&q, rng.gen_range(-0.6, 0.6), &glm::vec3(1.0, 0.0, 0.0));
 
                 surface[i][j].rotation = q;
-                surface[i][j].pos = glm::vec3(i as f32, j as f32, rng.gen_range(-0.5, 0.5))
+                surface[i][j].pos = glm::vec3(i as f32, j as f32, rng.gen_range(-0.7, 0.7));
+
+                if i == 3 && j == 3 {
+                    surface[i][j].pos.z = 1.5;
+                    surface[i][j].south = -1.5;
+                    surface[i][j].west = -1.5;
+                };
             }
         };
         ControlSurface { controls: surface }

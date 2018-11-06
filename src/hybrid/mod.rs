@@ -2,13 +2,16 @@ use amethyst::{
     prelude::*,
     ecs::prelude::*,
     core::Transform,
-    core::cgmath::prelude::InnerSpace,
     core::cgmath::{Vector3, Deg},
     assets::{Loader},
     renderer::{MeshHandle, Rgba, Projection, PosNormTex, Camera, Material, MaterialDefaults, ObjFormat, Light, PointLight},
 };
-
 use gilrs::Event;
+use nalgebra::geometry::{Isometry3};
+use ncollide3d::{
+    shape::TriMesh,
+    bounding_volume::{AABB, HasBoundingVolume, BoundingVolume}
+};
 
 use rand::{thread_rng, Rng};
 
@@ -22,6 +25,17 @@ impl Component for Ball {
     type Storage = DenseVecStorage<Self>;
 }
 
+// The bezier patches that make up the terrain are marked with the Chunk component
+pub struct Chunk {
+    pub collision_mesh: TriMesh<f32>,
+    pub patch: proc_geom::BicubicPatch,
+    pub bounding_box: AABB<f32>
+}
+
+impl Component for Chunk {
+    type Storage = VecStorage<Self>;
+}
+
 fn create_mesh(world: &World, vertices: Vec<PosNormTex>) -> MeshHandle {
     let loader = world.read_resource::<Loader>();
     loader.load_from_data(vertices.into(), (), &world.read_resource())
@@ -32,6 +46,8 @@ pub struct Hybrid;
 impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
     fn on_start(&mut self, data: StateData<GameData>) {
         let world = data.world;
+
+        world.register::<Chunk>();
 
         initialize_camera(world);
         initialize_lights(world);
@@ -55,7 +71,7 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         };
 
         let mut trans = Transform::default();
-        trans.translation = Vector3::new(-5.0, 0.0, 0.0);
+        trans.translation = Vector3::new(-5.0, 20.0, -3.0);
 
         world.add_resource(
             Vec::<Event>::new(),
@@ -80,7 +96,7 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         //     let loader = world.read_resource::<Loader>();
         //     let mat_defaults = world.read_resource::<MaterialDefaults>();
 
-        //     let albedo = loader.load_from_data([1.0, 1.0, 0.0, 0.0].into(), (), &world.read_resource());
+        //     let albedo = loader.load_from_data([1.0, 1.0, 0.0, 0.5].into(), (), &world.read_resource());
 
         //     Material {
         //         albedo,
@@ -100,8 +116,10 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         //     .build();
 
         // Create grid of bicubic patches
-        for i in 0..3 {
-            for j in 0..3 {
+        for i in 0..5 {
+            for j in 0..5 {
+                println!("i: {} j: {}", i, j);
+
                 let patch = proc_geom::BicubicPatch::new(
                     &cs.controls[i][j],
                     &cs.controls[i][j + 1],
@@ -109,6 +127,7 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
                     &cs.controls[i + 1][j]
                 );
                 let mesh = create_mesh(world, patch.rasterize(32));
+                let mut collision_mesh = patch.collision_mesh(16, 8.0);
 
                 let mtl = {
                     let loader = world.read_resource::<Loader>();
@@ -125,13 +144,20 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
 
                 let mut trans = Transform::default();
                 trans.scale = Vector3::new(8.0, 8.0, 8.0);
-                trans.translation.x = -10.0;
+                trans.translation.x = 0.0;
+                let mut bounding_box: AABB<f32> = collision_mesh.clone().bounding_volume(&Isometry3::identity());
+                bounding_box.loosen(3.0);
 
                 world
                     .create_entity()
                     .with(mesh)
                     .with(mtl)
                     .with(trans)
+                    .with(Chunk {
+                        collision_mesh: collision_mesh,
+                        patch: patch,
+                        bounding_box: bounding_box
+                    })
                     .build();
             }
         }

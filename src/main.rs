@@ -1,6 +1,9 @@
 extern crate amethyst;
 extern crate gilrs;
 extern crate rand;
+extern crate nalgebra;
+extern crate nalgebra_glm as glm;
+extern crate ncollide3d;
 
 mod hybrid;
 mod systems;
