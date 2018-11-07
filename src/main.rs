@@ -88,7 +88,8 @@ fn main() -> amethyst::Result<()> {
         .with(PrefabLoaderSystem::<BasicScenePrefab<Vec<PosNormTex>>>::default(), "", &[])
         .with_bundle(RenderBundle::new(pipe, Some(config)))?
         .with_bundle(TransformBundle::new())?
-        .with(systems::BallSystem { reader: None }, "ball_system", &[]);
+        .with(systems::BallSystem::new(), "ball_system", &[])
+        .with(systems::FollowSystem::new(), "follow_system", &[]);
     let mut game = CoreApplication::<_, gilrs::Event, PadEventReader>::new(assets_dir, Hybrid, game_data)?;
     game.run();
 

@@ -4,7 +4,7 @@ use amethyst::{
     core::Transform,
 };
 use amethyst::core::cgmath as cgmath;
-use gilrs::{Event, Button::*};
+use gilrs::{Event, Button::*, Axis::*};
 use gilrs::ev::EventType::*;
 use glm;
 use nalgebra::geometry::{Point3, Isometry3};
@@ -16,7 +16,17 @@ use hybrid::Ball;
 use hybrid::Chunk;
 
 pub struct BallSystem {
-    pub reader: Option<ReaderId<Event>>,
+    pub left_stick: glm::Vec2,
+    pub right_stick: glm::Vec2
+}
+
+impl BallSystem {
+    pub fn new() -> Self {
+        BallSystem {
+            left_stick: glm::vec2(0.0, 0.0),
+            right_stick: glm::vec2(0.0, 0.0)
+        }
+    }
 }
 
 fn clamp(n: f32) -> f32 {
@@ -39,17 +49,25 @@ impl<'s> System<'s> for BallSystem {
 
     fn setup(&mut self, res: &mut Resources) {
         Self::SystemData::setup(res);
-        self.reader = None;
     }
 
     fn run(&mut self, (balls, chunks, mut transforms, mut events): Self::SystemData) {
         for (_ball, mut transform) in (&balls, &mut transforms).join() {
 
             for event in events.drain(..) {
-                println!("Recieved {:?}", event);
+                //println!("Recieved {:?}", event);
                 match event {
                     Event { id: _, event: ButtonPressed(South, _), time: _ } =>
                         transform.translation.x -= 1.0,
+                    Event { id: _, event: AxisChanged(LeftStickX, x, _), time: _ } =>
+                        self.left_stick.x = x,
+                    Event { id: _, event: AxisChanged(LeftStickY, y, _), time: _ } =>
+                        self.left_stick.y = y,
+                    Event { id: _, event: AxisChanged(RightStickX, x, _), time: _ } =>
+                        self.right_stick.x = x,
+                    Event { id: _, event: AxisChanged(RightStickY, y, _), time: _ } =>
+                        self.right_stick.y = y,
+
                     _ => ()
                 }
             };
@@ -72,7 +90,6 @@ impl<'s> System<'s> for BallSystem {
                                 const BEZIER_SMOOTHNESS: i32 = 256; // Higher = smoother
                                 let normal = chunk.patch.normal(BEZIER_SMOOTHNESS, clamp(uv.x), clamp(uv.y));
 
-                                println!("{:?}", uv);
                                 intersection_point = Some((ray.origin + ray.dir * hit.toi, normal, direction));
                                 break
                             }
@@ -89,7 +106,6 @@ impl<'s> System<'s> for BallSystem {
                     transform.translation.x = p.x;
                     transform.translation.y = p.y;
                     transform.translation.z = p.z + 0.5;
-                    println!("{:?}", normal);
 
                     transform.rotation =
                         cgmath::Quaternion::from_axis_angle(cgmath::Vector3::new(0.0, 1.0, 0.0), cgmath::Rad(0.5 * PI)) *
@@ -97,7 +113,8 @@ impl<'s> System<'s> for BallSystem {
                 }
             }
 
-            transform.translation.x += 0.02
+            transform.translation.x += self.left_stick.x;
+            transform.translation.y += self.left_stick.y
         }
     }
 }

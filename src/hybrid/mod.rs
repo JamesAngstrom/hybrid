@@ -17,6 +17,14 @@ use rand::{thread_rng, Rng};
 
 mod proc_geom;
 
+pub struct Follow {
+    pub entity: Entity
+}
+
+impl Component for Follow {
+    type Storage = DenseVecStorage<Self>;
+}
+
 pub struct Ball {
     pub velocity: [f32; 2]
 }
@@ -48,8 +56,8 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         let world = data.world;
 
         world.register::<Chunk>();
+        world.register::<Follow>();
 
-        initialize_camera(world);
         initialize_lights(world);
 
         let (mesh, mtl) = {
@@ -71,13 +79,13 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         };
 
         let mut trans = Transform::default();
-        trans.translation = Vector3::new(-5.0, 20.0, -3.0);
+        trans.translation = Vector3::new(0.0, -5.0, 10.0);
 
         world.add_resource(
             Vec::<Event>::new(),
         );
 
-        world
+        let player = world
             .create_entity()
             .with(mesh)
             .with(mtl.clone())
@@ -86,6 +94,8 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
                 velocity: [0.0, 0.0]
             })
             .build();
+
+        initialize_camera(world, player);
 
         // Control Surface
         let cs = proc_geom::ControlSurface::new();
@@ -181,15 +191,16 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
     }
 }
 
-fn initialize_camera(world: &mut World) {
+fn initialize_camera(world: &mut World, target: Entity) {
     let mut transform = Transform::default();
     transform.set_position(Vector3::new(0.0, -20.0, 10.0));
-    transform.set_rotation(Deg(75.96), Deg(0.0), Deg(0.0));
+    transform.set_rotation(Deg(90.0), Deg(0.0), Deg(0.0));
 
     world
         .create_entity()
         .with(Camera::from(Projection::perspective(1.0, Deg(60.0))))
         .with(transform)
+        .with(Follow { entity: target })
         .build();
 }
 
