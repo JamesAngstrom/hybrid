@@ -4,7 +4,7 @@ use amethyst::{
     core::Transform,
     core::cgmath::{Vector3, Deg},
     assets::{Loader},
-    renderer::{MeshHandle, Rgba, Projection, PosNormTex, Camera, Material, MaterialDefaults, ObjFormat, Light, PointLight},
+    renderer::{MeshHandle, DebugLinesComponent, Rgba, Projection, PosNormTex, Camera, Material, MaterialDefaults, ObjFormat, Light, PointLight},
 };
 use gilrs::Event;
 use nalgebra::geometry::{Isometry3};
@@ -79,7 +79,8 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         };
 
         let mut trans = Transform::default();
-        trans.translation = Vector3::new(0.0, -5.0, 10.0);
+        trans.scale = Vector3::new(0.3, 0.3, 0.3);
+        trans.translation = Vector3::new(5.0, 5.0, 30.0);
 
         world.add_resource(
             Vec::<Event>::new(),
@@ -90,6 +91,7 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
             .with(mesh)
             .with(mtl.clone())
             .with(trans)
+            .with(DebugLinesComponent::new())
             .with(Ball {
                 velocity: [0.0, 0.0]
             })

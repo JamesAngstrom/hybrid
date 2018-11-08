@@ -1,7 +1,9 @@
 use amethyst::{
     ecs::prelude::*,
+    core::timing::{Time},
     core::cgmath::{Rotation3, InnerSpace},
     core::Transform,
+    renderer::{DebugLinesComponent, DebugLines, Rgba}
 };
 use amethyst::core::cgmath as cgmath;
 use gilrs::{Event, Button::*, Axis::*};
@@ -16,6 +18,8 @@ use hybrid::Ball;
 use hybrid::Chunk;
 
 pub struct BallSystem {
+    pub velocity: glm::Vec3,
+    pub rotation: f32,
     pub left_stick: glm::Vec2,
     pub right_stick: glm::Vec2
 }
@@ -23,6 +27,8 @@ pub struct BallSystem {
 impl BallSystem {
     pub fn new() -> Self {
         BallSystem {
+            velocity: glm::vec3(0.0, 0.0, 0.0),
+            rotation: 0.0,
             left_stick: glm::vec2(0.0, 0.0),
             right_stick: glm::vec2(0.0, 0.0)
         }
@@ -44,15 +50,17 @@ impl<'s> System<'s> for BallSystem {
         ReadStorage<'s, Ball>,
         ReadStorage<'s, Chunk>,
         WriteStorage<'s, Transform>,
-        Write<'s, Vec<Event>>
+        WriteStorage<'s, DebugLinesComponent>,
+        Write<'s, Vec<Event>>,
+        Read<'s, Time>
     );
 
     fn setup(&mut self, res: &mut Resources) {
         Self::SystemData::setup(res);
     }
 
-    fn run(&mut self, (balls, chunks, mut transforms, mut events): Self::SystemData) {
-        for (_ball, mut transform) in (&balls, &mut transforms).join() {
+    fn run(&mut self, (balls, chunks, mut transforms, mut debuglines, mut events, time): Self::SystemData) {
+        for (_ball, mut transform, mut debugline) in (&balls, &mut transforms, &mut debuglines).join() {
 
             for event in events.drain(..) {
                 //println!("Recieved {:?}", event);
@@ -100,21 +108,70 @@ impl<'s> System<'s> for BallSystem {
                 if intersection_point.is_some() { break };
             };
 
+            const SPEED: f32 = 20.0;
+            const MASS: f32 = 80.0;
+            const DRAG_COEFFICIENT: f32 = 1.0;
+
+            let gravity = glm::vec3(0.0, 0.0, -0.0098);
+            let up = glm::vec3(0.0, 0.0, 1.0);
+            let speed = self.velocity.magnitude();
+            let drag_scalar = DRAG_COEFFICIENT * (f32::powi(speed, 2) / 2.0);
+            let drag = if speed >= 0.001 { self.velocity.normalize() * -drag_scalar } else { glm::vec3(0.0, 0.0, 0.0) };
+
+            self.rotation += self.left_stick.x / 30.0;
+            self.rotation = if self.rotation >= 2.0 * PI { self.rotation - 2.0 * PI } else { self.rotation };
+            self.rotation = if self.rotation <  0.0 * PI { self.rotation + 2.0 * PI } else { self.rotation };
+
             match intersection_point {
-                None => (),
+                None => {
+                    // Player is not within any surface collision box, and free-falling
+                    let accel = (MASS * gravity + drag) / MASS;
+                    println!("{:?} {:?}", drag, accel);
+                    self.velocity += accel * time.delta_seconds();
+                    transform.translation += cgmath::Vector3::new(self.velocity.x, self.velocity.y, self.velocity.z)
+                },
                 Some((p, normal, _)) => {
-                    transform.translation.x = p.x;
-                    transform.translation.y = p.y;
-                    transform.translation.z = p.z + 0.5;
+                    // How soft the surface is
+                    const SQUISHYNESS: f32 = 1.0;
+                    let height = transform.translation.z - p.z;
+                    if height >= 0.0 {
+                        let squish = if height <= SQUISHYNESS { f32::sin(height * PI / (SQUISHYNESS * 2.0)) } else { 1.0 };
+                        let accel = (MASS * gravity + drag) / MASS;
+                        println!("{:?} {:?} {:?}", squish, drag, accel);
+                        self.velocity += accel * (squish * 0.01) * time.delta_seconds();
+                        transform.translation += cgmath::Vector3::new(self.velocity.x, self.velocity.y, self.velocity.z);
+                    };
+                    if transform.translation.z <= p.z {
+                        transform.translation.z = p.z
+                    }
+
+                    //transform.translation.x = p.x;
+                    //transform.translation.y = p.y;
+
+                    debugline.clear();
+
+                    let angle = glm::rotate_vec3(&(up.cross(&normal)), -(0.5 * PI), &normal);
+                    let rotation = glm::quat_angle_axis(self.rotation, &normal);
+                    let dir = glm::quat_cross_vec(&rotation, &angle);
+                    //let dir2 = glm::rotate_vec3(&(dir.cross(&normal)), -(0.5 * PI), &normal);
+                    //let dir2 = if dir2.z >= 0.0 { dir2 * -1.0 } else { dir2 };
+
+                    transform.translation += cgmath::Vector3::new(dir.x, dir.y, dir.z) * (0.2 * -dir.z);
+
+                    debugline.add_direction(cgmath::Point3::new(p.x, p.y, p.z + 2.0), cgmath::Vector3::new(angle.x, angle.y, angle.z) * 2.0, Rgba::green());
+                    debugline.add_direction(cgmath::Point3::new(p.x, p.y, p.z + 2.0), cgmath::Vector3::new(angle.x, angle.y, angle.z) * -2.0, Rgba::green());
+                    debugline.add_direction(cgmath::Point3::new(p.x, p.y, p.z + 2.0), cgmath::Vector3::new(dir.x, dir.y, dir.z) * 2.0, Rgba::red());
+                    debugline.add_direction(cgmath::Point3::new(p.x, p.y, p.z + 2.0), cgmath::Vector3::new(dir.x, dir.y, dir.z) * -2.0, Rgba::white());
+                    debugline.add_direction(cgmath::Point3::new(p.x, p.y, p.z), cgmath::Vector3::new(normal.x, normal.y, normal.z) * 5.0, Rgba::blue());
 
                     transform.rotation =
-                        cgmath::Quaternion::from_axis_angle(cgmath::Vector3::new(0.0, 1.0, 0.0), cgmath::Rad(0.5 * PI)) *
-                        cgmath::Quaternion::from_sv(1.0, cgmath::Vector3::new(normal.x, normal.y, normal.z)).normalize();
+                        //cgmath::Quaternion::from_axis_angle(cgmath::Vector3::new(1.0, 0.0, 0.0), cgmath::Rad(0.5 * PI)) *
+                        cgmath::Quaternion::new(rotation.coords.w, rotation.coords.x, rotation.coords.y, rotation.coords.z);
                 }
             }
 
-            transform.translation.x += self.left_stick.x;
-            transform.translation.y += self.left_stick.y
+            transform.translation.x += self.right_stick.x * SPEED * time.delta_seconds();
+            transform.translation.y += self.right_stick.y * SPEED * time.delta_seconds();
         }
     }
 }

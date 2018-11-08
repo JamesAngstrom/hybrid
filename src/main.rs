@@ -15,7 +15,7 @@ use amethyst::{
     ecs::shred::ResourceId,
     core::EventReader,
     assets::PrefabLoaderSystem,
-    renderer::{DisplayConfig, DrawShaded, PosNormTex, Pipeline, RenderBundle, Stage},
+    renderer::{DisplayConfig, DrawShaded, DrawDebugLines, PosColorNorm, PosNormTex, Pipeline, RenderBundle, Stage},
     utils::{application_root_dir, scene::BasicScenePrefab},
 };
 
@@ -80,6 +80,7 @@ fn main() -> amethyst::Result<()> {
         Stage::with_backbuffer()
             .clear_target([0.0, 0.0, 0.0, 1.0], 1.0)
             .with_pass(DrawShaded::<PosNormTex>::new())
+            .with_pass(DrawDebugLines::<PosColorNorm>::new())
     );
 
     let assets_dir = format!("{}/assets/", app_root);
