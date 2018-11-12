@@ -2,9 +2,10 @@ use amethyst::{
     prelude::*,
     ecs::prelude::*,
     core::Transform,
-    core::cgmath::{Vector3, Deg},
-    assets::{Loader},
-    renderer::{MeshHandle, DebugLinesComponent, Rgba, Projection, PosNormTex, Camera, Material, MaterialDefaults, ObjFormat, Light, PointLight},
+    core::cgmath::{Vector3, Deg, InnerSpace},
+    assets::{Loader, AssetStorage},
+    renderer::{Shape, MeshHandle, DebugLinesComponent, JpgFormat, Texture, TextureHandle, TriplanarMaterial, Rgba, Projection, SkyboxColor,
+               PosNormTex, PosNormTangTex, Camera, AmbientColor, Material, MaterialDefaults, TextureMetadata, ObjFormat, Light, DirectionalLight, PointLight},
 };
 use gilrs::Event;
 use nalgebra::geometry::{Isometry3};
@@ -49,6 +50,20 @@ fn create_mesh(world: &World, vertices: Vec<PosNormTex>) -> MeshHandle {
     loader.load_from_data(vertices.into(), (), &world.read_resource())
 }
 
+pub fn load_texture<N>(name: N, world: &World) -> TextureHandle
+where
+    N: Into<String>,
+{
+    let loader = world.read_resource::<Loader>();
+    loader.load(
+        name,
+        JpgFormat,
+        TextureMetadata::srgb(),
+        (),
+        &world.read_resource::<AssetStorage<Texture>>(),
+    )
+}
+
 pub struct Hybrid;
 
 impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
@@ -66,9 +81,9 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
 
             let loader = world.read_resource::<Loader>();
             let mat_defaults = world.read_resource::<MaterialDefaults>();
-
+            
             let mesh = loader.load("mesh/teapot.obj", ObjFormat, (), (), meshes);
-            let albedo = loader.load_from_data([0.0, 0.0, 1.0, 0.0].into(), (), textures);
+            let albedo = loader.load_from_data([1.0, 0.0, 1.0, 0.0].into(), (), textures);
 
             let mat = Material {
                 albedo,
@@ -80,7 +95,7 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
 
         let mut trans = Transform::default();
         trans.scale = Vector3::new(0.3, 0.3, 0.3);
-        trans.translation = Vector3::new(5.0, 5.0, 30.0);
+        trans.translation = Vector3::new(5.0, 30.0, 5.0);
 
         world.add_resource(
             Vec::<Event>::new(),
@@ -138,18 +153,48 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
                     &cs.controls[i + 1][j + 1],
                     &cs.controls[i + 1][j]
                 );
-                let mesh = create_mesh(world, patch.rasterize(32));
+                let mesh = create_mesh(world, patch.rasterize(2));
                 let mut collision_mesh = patch.collision_mesh(16, 8.0);
 
-                let mtl = {
+                let mtl_xy = {
                     let loader = world.read_resource::<Loader>();
                     let mat_defaults = world.read_resource::<MaterialDefaults>();
 
                     let mut rng = thread_rng();
-                    let albedo = loader.load_from_data([rng.gen_range(0.7, 1.0), rng.gen_range(0.0, 1.0), rng.gen_range(0.0, 1.0), 0.0].into(), (), &world.read_resource());
+                    let albedo = load_texture("texture/Rock08_col.jpg", world);
 
                     Material {
                         albedo,
+                        ..mat_defaults.0.clone()
+                    }
+                };
+                let mtl_yz = {
+                    let loader = world.read_resource::<Loader>();
+                    let mat_defaults = world.read_resource::<MaterialDefaults>();
+
+                    let mut rng = thread_rng();
+                    let albedo = load_texture("texture/Rock07_col.jpg", world);
+                    let emission = load_texture("texture/noise.jpg", world);
+
+                    Material {
+                        albedo,
+                        emission,
+                        ..mat_defaults.0.clone()
+                    }
+                };
+                let mtl_xz = {
+                    let loader = world.read_resource::<Loader>();
+                    let mat_defaults = world.read_resource::<MaterialDefaults>();
+
+                    let mut rng = thread_rng();
+                    let albedo = load_texture("texture/Ice04_col.jpg", world);
+                    let emission = load_texture("texture/Snow01_col.jpg", world);
+
+                    //let albedo = loader.load_from_data([rng.gen_range(0.4, 0.6), rng.gen_range(0.0, 0.4), rng.gen_range(0.0, 0.4), 0.0].into(), (), &world.read_resource());
+
+                    Material {
+                        albedo,
+                        emission,
                         ..mat_defaults.0.clone()
                     }
                 };
@@ -163,7 +208,11 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
                 world
                     .create_entity()
                     .with(mesh)
-                    .with(mtl)
+                    .with(TriplanarMaterial {
+                        mtl_xy: mtl_xy,
+                        mtl_yz: mtl_yz,
+                        mtl_xz: mtl_xz
+                    })
                     .with(trans)
                     .with(Chunk {
                         collision_mesh: collision_mesh,
@@ -195,8 +244,8 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
 
 fn initialize_camera(world: &mut World, target: Entity) {
     let mut transform = Transform::default();
-    transform.set_position(Vector3::new(0.0, -20.0, 10.0));
-    transform.set_rotation(Deg(90.0), Deg(0.0), Deg(0.0));
+    transform.set_position(Vector3::new(0.0, 10.0, 100.0));
+    //transform.set_rotation(Deg(90.0), Deg(0.0), Deg(0.0));
 
     world
         .create_entity()
@@ -208,16 +257,23 @@ fn initialize_camera(world: &mut World, target: Entity) {
 
 
 fn initialize_lights(world: &mut World) {
-    let light: Light = PointLight {
-        intensity: 100.0,
-        radius: 1.0,
-        color: Rgba::white(),
-        ..Default::default()
+    world.add_resource(AmbientColor(Rgba(0.15, 0.18, 0.35, 1.0)));
+    {
+        let mut skybox = world.write_resource::<SkyboxColor>();
+        skybox.zenith = Rgba(0.04, 0.05, 0.37, 1.0);
+        skybox.nadir = Rgba::black(); 
+    }
+
+    let dir = Vector3::new(0.7, -1.0, 0.8).normalize();
+
+    let light: Light = DirectionalLight {
+        color: Rgba(0.4, 0.4, 0.5, 1.0),
+        direction: [dir.x, dir.y, dir.z]
     }.into();
 
     let mut transform = Transform::default();
-    transform.set_position(Vector3::new(5.0, -20.0, 15.0));
+    transform.set_position(Vector3::new(5.0, 20.0, 15.0));
 
-    // Add point light.
     world.create_entity().with(light).with(transform).build();
+
 }

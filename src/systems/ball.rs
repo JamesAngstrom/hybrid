@@ -89,7 +89,7 @@ impl<'s> System<'s> for BallSystem {
                     for direction in [-1.0, 1.0].iter() {
                         let ray = Ray {
                             origin: point,
-                            dir: glm::vec3(0.0, 0.0, *direction)
+                            dir: glm::vec3(0.0, *direction, 0.0)
                         };
 
                         match chunk.collision_mesh.toi_and_normal_and_uv_with_ray(&Isometry3::identity(), &ray, false) {
@@ -112,8 +112,8 @@ impl<'s> System<'s> for BallSystem {
             const MASS: f32 = 80.0;
             const DRAG_COEFFICIENT: f32 = 1.0;
 
-            let gravity = glm::vec3(0.0, 0.0, -0.0098);
-            let up = glm::vec3(0.0, 0.0, 1.0);
+            let gravity = glm::vec3(0.0, -0.0098, 0.0);
+            let up = glm::vec3(0.0, 1.0, 0.0);
             let speed = self.velocity.magnitude();
             let drag_scalar = DRAG_COEFFICIENT * (f32::powi(speed, 2) / 2.0);
             let drag = if speed >= 0.001 { self.velocity.normalize() * -drag_scalar } else { glm::vec3(0.0, 0.0, 0.0) };
@@ -133,7 +133,7 @@ impl<'s> System<'s> for BallSystem {
                 Some((p, normal, _)) => {
                     // How soft the surface is
                     const SQUISHYNESS: f32 = 1.0;
-                    let height = transform.translation.z - p.z;
+                    let height = transform.translation.y - p.y;
                     if height >= 0.0 {
                         let squish = if height <= SQUISHYNESS { f32::sin(height * PI / (SQUISHYNESS * 2.0)) } else { 1.0 };
                         let accel = (MASS * gravity + drag) / MASS;
@@ -141,8 +141,8 @@ impl<'s> System<'s> for BallSystem {
                         self.velocity += accel * (squish * 0.01) * time.delta_seconds();
                         transform.translation += cgmath::Vector3::new(self.velocity.x, self.velocity.y, self.velocity.z);
                     };
-                    if transform.translation.z <= p.z {
-                        transform.translation.z = p.z
+                    if transform.translation.y <= p.y {
+                        transform.translation.y = p.y
                     }
 
                     //transform.translation.x = p.x;
@@ -156,12 +156,12 @@ impl<'s> System<'s> for BallSystem {
                     //let dir2 = glm::rotate_vec3(&(dir.cross(&normal)), -(0.5 * PI), &normal);
                     //let dir2 = if dir2.z >= 0.0 { dir2 * -1.0 } else { dir2 };
 
-                    transform.translation += cgmath::Vector3::new(dir.x, dir.y, dir.z) * (0.2 * -dir.z);
+                    transform.translation += cgmath::Vector3::new(dir.x, dir.y, dir.z) * (0.2 * -dir.y);
 
-                    debugline.add_direction(cgmath::Point3::new(p.x, p.y, p.z + 2.0), cgmath::Vector3::new(angle.x, angle.y, angle.z) * 2.0, Rgba::green());
-                    debugline.add_direction(cgmath::Point3::new(p.x, p.y, p.z + 2.0), cgmath::Vector3::new(angle.x, angle.y, angle.z) * -2.0, Rgba::green());
-                    debugline.add_direction(cgmath::Point3::new(p.x, p.y, p.z + 2.0), cgmath::Vector3::new(dir.x, dir.y, dir.z) * 2.0, Rgba::red());
-                    debugline.add_direction(cgmath::Point3::new(p.x, p.y, p.z + 2.0), cgmath::Vector3::new(dir.x, dir.y, dir.z) * -2.0, Rgba::white());
+                    debugline.add_direction(cgmath::Point3::new(p.x, p.y + 2.0, p.z), cgmath::Vector3::new(angle.x, angle.y, angle.z) * 2.0, Rgba::green());
+                    debugline.add_direction(cgmath::Point3::new(p.x, p.y + 2.0, p.z), cgmath::Vector3::new(angle.x, angle.y, angle.z) * -2.0, Rgba::green());
+                    debugline.add_direction(cgmath::Point3::new(p.x, p.y + 2.0, p.z), cgmath::Vector3::new(dir.x, dir.y, dir.z) * 2.0, Rgba::red());
+                    debugline.add_direction(cgmath::Point3::new(p.x, p.y + 2.0, p.z), cgmath::Vector3::new(dir.x, dir.y, dir.z) * -2.0, Rgba::white());
                     debugline.add_direction(cgmath::Point3::new(p.x, p.y, p.z), cgmath::Vector3::new(normal.x, normal.y, normal.z) * 5.0, Rgba::blue());
 
                     transform.rotation =
@@ -171,7 +171,7 @@ impl<'s> System<'s> for BallSystem {
             }
 
             transform.translation.x += self.right_stick.x * SPEED * time.delta_seconds();
-            transform.translation.y += self.right_stick.y * SPEED * time.delta_seconds();
+            transform.translation.z -= self.right_stick.y * SPEED * time.delta_seconds();
         }
     }
 }

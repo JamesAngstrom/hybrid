@@ -44,14 +44,14 @@ impl<'s> System<'s> for FollowSystem {
 
             const SPEED: f32 = 10.0;
             let dir = point - transform.translation;
-            if dir.magnitude() > 20.0 {
+            if dir.magnitude() > 35.0 {
                 transform.translation += dir.normalize() * SPEED * time.delta_seconds()
             }
-            transform.translation.z = point.z + 5.0;
+            transform.translation.y = point.y + 15.0;
 
             let eye = transform.translation;
             let dir = (point - eye).normalize();
-            let look = Quaternion::look_at(dir, Vector3::new(0.0, 0.0, 1.0));
+            let look = Quaternion::look_at(dir, Vector3::new(0.0, 1.0, 0.0));
             transform.rotation = Quaternion::new(look.v.y, look.v.z, look.s, -look.v.x);
             // let correct = Quaternion::new(look.v.y, look.v.z, look.s, -look.v.x);
 

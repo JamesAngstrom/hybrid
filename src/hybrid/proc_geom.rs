@@ -38,10 +38,10 @@ impl ControlPlane {
             pos: glm::vec3(0.0, 0.0, 0.0),
             rotation: glm::quat_identity(),
             // All 0.3 gives sensible results
-            north: 0.9,
-            east: 0.3,
-            south: -0.2,
-            west: -0.3,
+            north: 1.0,
+            east: 0.4,
+            south: -0.3,
+            west: -0.4,
         }
     }
 
@@ -57,7 +57,7 @@ impl ControlPlane {
             NorthWest => (self.west, self.north)
         };
 
-        glm::quat_cross_vec(&self.rotation, &glm::vec3(x, y, 0.0)) + self.pos
+        glm::quat_cross_vec(&self.rotation, &glm::vec3(x, 0.0, y)) + self.pos
     }
 
     pub fn center(&self) -> glm::Vec3 {
@@ -75,7 +75,7 @@ impl ControlPlane {
         for p in [c, b, a, a, d, c].iter() {
             vec.push(PosNormTex {
                 position: [p.x, p.y, p.z],
-                normal: [0.0, 0.0, 1.0],
+                normal: [0.0, 1.0, 0.0],
                 tex_coord: [0.0, 0.0]
             })
         };
@@ -164,9 +164,9 @@ impl BicubicPatch {
 
         // We need to flip some normals near the edge
         if (delta_u < 0.0) && (delta_v >= 0.0) || (delta_u >= 0.0) && (delta_v < 0.0) {
-            (p - p_u).cross(&(p - p_v)).normalize() * -1.0
-        } else {
             (p - p_u).cross(&(p - p_v)).normalize()
+        } else {
+            (p - p_u).cross(&(p - p_v)).normalize() * -1.0
         }
     }
 
@@ -177,7 +177,7 @@ impl BicubicPatch {
         for row in 0..res {
             for col in 0..res {
                 // Generate two triangles for each square in the grid
-                for (rt, ct) in [(0.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0), (1.0, 0.0), (1.0, 1.0)].iter() {
+                for (rt, ct) in [(0.0, 0.0), (0.0, 1.0), (1.0, 1.0), (0.0, 0.0), (1.0, 1.0), (1.0, 0.0)].iter() {
                     let u = (row as f32 + rt) / res as f32;
                     let v = (col as f32 + ct) / res as f32;
 
@@ -229,18 +229,18 @@ impl ControlSurface {
             for j in 0..SIZE {
                 let mut rng = thread_rng();
                 let q = surface[i][j].rotation;
-                let q = glm::quat_rotate_normalized_axis(&q, rng.gen_range(-0.6, 0.6), &glm::vec3(0.0, 0.0, 1.0));
-                let q = glm::quat_rotate_normalized_axis(&q, rng.gen_range(-0.6, 0.6), &glm::vec3(0.0, 1.0, 0.0));
-                let q = glm::quat_rotate_normalized_axis(&q, rng.gen_range(-0.6, 0.6), &glm::vec3(1.0, 0.0, 0.0));
+                let q = glm::quat_rotate_normalized_axis(&q, rng.gen_range(-0.7, 0.7), &glm::vec3(0.0, 0.0, 1.0));
+                let q = glm::quat_rotate_normalized_axis(&q, rng.gen_range(-1.2, 1.2), &glm::vec3(0.0, 1.0, 0.0));
+                let q = glm::quat_rotate_normalized_axis(&q, rng.gen_range(-0.7, 0.7), &glm::vec3(1.0, 0.0, 0.0));
 
                 surface[i][j].rotation = q;
-                surface[i][j].pos = glm::vec3(i as f32, j as f32, rng.gen_range(-0.7, 0.7));
+                surface[i][j].pos = glm::vec3(i as f32, rng.gen_range(-0.8, 0.8), j as f32);
 
-                if i == 3 && j == 3 {
-                    surface[i][j].pos.z = 1.5;
-                    surface[i][j].south = -1.5;
-                    surface[i][j].west = -1.5;
-                };
+                //if i == 3 && j == 3 {
+                //    surface[i][j].pos.y = -0.7;
+                //    surface[i][j].south = 0.8;
+                //    surface[i][j].west = -0.9;
+                //};
             }
         };
         ControlSurface { controls: surface }
