@@ -1,15 +1,16 @@
 use amethyst::{
     ecs::prelude::*,
     core::timing::{Time},
-    core::cgmath::{Rotation3, InnerSpace},
+    core::nalgebra::{
+        base::{Unit},
+        Point, Point3, Isometry3, Vector3
+    },
     core::Transform,
-    renderer::{DebugLinesComponent, DebugLines, Rgba}
+    renderer::{DebugLinesComponent, Rgba}
 };
-use amethyst::core::cgmath as cgmath;
 use gilrs::{Event, Button::*, Axis::*};
 use gilrs::ev::EventType::*;
 use glm;
-use nalgebra::geometry::{Point3, Isometry3};
 use ncollide3d::query::{Ray, RayCast, PointQuery};
 
 use std::f32::consts::*;
@@ -65,8 +66,9 @@ impl<'s> System<'s> for BallSystem {
             for event in events.drain(..) {
                 //println!("Recieved {:?}", event);
                 match event {
-                    Event { id: _, event: ButtonPressed(South, _), time: _ } =>
-                        transform.translation.x -= 1.0,
+                    Event { id: _, event: ButtonPressed(South, _), time: _ } => {
+                        transform.translate_x(-1.0);
+                    },
                     Event { id: _, event: AxisChanged(LeftStickX, x, _), time: _ } =>
                         self.left_stick.x = x,
                     Event { id: _, event: AxisChanged(LeftStickY, y, _), time: _ } =>
@@ -82,7 +84,7 @@ impl<'s> System<'s> for BallSystem {
 
             let mut intersection_point = None;
             for chunk in (&chunks).join() {
-                let point = Point3::new(transform.translation.x, transform.translation.y, transform.translation.z);
+                let point = Point::from(*transform.translation());
 
                 if chunk.bounding_box.contains_point(&Isometry3::identity(), &point) {
                     // We find our intersection point with the bezier surface by first raycasting down, and if that fails raycast up.
@@ -128,21 +130,21 @@ impl<'s> System<'s> for BallSystem {
                     let accel = (MASS * gravity + drag) / MASS;
                     println!("{:?} {:?}", drag, accel);
                     self.velocity += accel * time.delta_seconds();
-                    transform.translation += cgmath::Vector3::new(self.velocity.x, self.velocity.y, self.velocity.z)
+                    transform.translate(self.velocity);
                 },
                 Some((p, normal, _)) => {
                     // How soft the surface is
                     const SQUISHYNESS: f32 = 1.0;
-                    let height = transform.translation.y - p.y;
+                    let height = transform.translation().y - p.y;
                     if height >= 0.0 {
                         let squish = if height <= SQUISHYNESS { f32::sin(height * PI / (SQUISHYNESS * 2.0)) } else { 1.0 };
                         let accel = (MASS * gravity + drag) / MASS;
                         println!("{:?} {:?} {:?}", squish, drag, accel);
                         self.velocity += accel * (squish * 0.01) * time.delta_seconds();
-                        transform.translation += cgmath::Vector3::new(self.velocity.x, self.velocity.y, self.velocity.z);
+                        transform.translate(self.velocity);
                     };
-                    if transform.translation.y <= p.y {
-                        transform.translation.y = p.y
+                    if transform.translation().y <= p.y {
+                        transform.set_y(p.y);
                     }
 
                     //transform.translation.x = p.x;
@@ -156,22 +158,20 @@ impl<'s> System<'s> for BallSystem {
                     //let dir2 = glm::rotate_vec3(&(dir.cross(&normal)), -(0.5 * PI), &normal);
                     //let dir2 = if dir2.z >= 0.0 { dir2 * -1.0 } else { dir2 };
 
-                    transform.translation += cgmath::Vector3::new(dir.x, dir.y, dir.z) * (0.2 * -dir.y);
+                    transform.translate(dir * 0.2 * -dir.y);
 
-                    debugline.add_direction(cgmath::Point3::new(p.x, p.y + 2.0, p.z), cgmath::Vector3::new(angle.x, angle.y, angle.z) * 2.0, Rgba::green());
-                    debugline.add_direction(cgmath::Point3::new(p.x, p.y + 2.0, p.z), cgmath::Vector3::new(angle.x, angle.y, angle.z) * -2.0, Rgba::green());
-                    debugline.add_direction(cgmath::Point3::new(p.x, p.y + 2.0, p.z), cgmath::Vector3::new(dir.x, dir.y, dir.z) * 2.0, Rgba::red());
-                    debugline.add_direction(cgmath::Point3::new(p.x, p.y + 2.0, p.z), cgmath::Vector3::new(dir.x, dir.y, dir.z) * -2.0, Rgba::white());
-                    debugline.add_direction(cgmath::Point3::new(p.x, p.y, p.z), cgmath::Vector3::new(normal.x, normal.y, normal.z) * 5.0, Rgba::blue());
+                    debugline.add_direction(Point3::new(p.x, p.y + 2.0, p.z), angle * 2.0, Rgba::green());
+                    debugline.add_direction(Point3::new(p.x, p.y + 2.0, p.z), angle * -2.0, Rgba::green());
+                    debugline.add_direction(Point3::new(p.x, p.y + 2.0, p.z), dir * 2.0, Rgba::red());
+                    debugline.add_direction(Point3::new(p.x, p.y + 2.0, p.z), dir * -2.0, Rgba::white());
+                    debugline.add_direction(Point3::new(p.x, p.y, p.z), normal * 5.0, Rgba::blue());
 
-                    transform.rotation =
-                        //cgmath::Quaternion::from_axis_angle(cgmath::Vector3::new(1.0, 0.0, 0.0), cgmath::Rad(0.5 * PI)) *
-                        cgmath::Quaternion::new(rotation.coords.w, rotation.coords.x, rotation.coords.y, rotation.coords.z);
+                    transform.look_at(Vector3::new(p.x, p.y, p.z) + angle, up);
                 }
             }
 
-            transform.translation.x += self.right_stick.x * SPEED * time.delta_seconds();
-            transform.translation.z -= self.right_stick.y * SPEED * time.delta_seconds();
+            transform.translate_x(self.right_stick.x * SPEED * time.delta_seconds());
+            transform.translate_z(-self.right_stick.y * SPEED * time.delta_seconds());
         }
     }
 }

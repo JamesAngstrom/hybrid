@@ -1,6 +1,7 @@
 
 use amethyst::{
-    renderer::{PosNormTex}
+    renderer::{PosNormTex},
+    core::nalgebra::{Vector2, Vector3}
 };
 
 use rand::{thread_rng, Rng};
@@ -74,9 +75,9 @@ impl ControlPlane {
 
         for p in [c, b, a, a, d, c].iter() {
             vec.push(PosNormTex {
-                position: [p.x, p.y, p.z],
-                normal: [0.0, 1.0, 0.0],
-                tex_coord: [0.0, 0.0]
+                position: *p,
+                normal: Vector3::new(0.0, 1.0, 0.0),
+                tex_coord: Vector2::new(0.0, 0.0)
             })
         };
         vec
@@ -192,7 +193,7 @@ impl BicubicPatch {
     }
 
     pub fn rasterize(&self, res: i32) -> Vec<PosNormTex> {
-        self.rasterize_with(res, |p, n, u, v| PosNormTex { position: p.into(), normal: n.into(), tex_coord: [u, v] })
+        self.rasterize_with(res, |p, n, u, v| PosNormTex { position: p, normal: n, tex_coord: Vector2::new(u, v) })
     }
 
     // TODO: pass a more general translation + scale here

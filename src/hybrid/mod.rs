@@ -2,19 +2,19 @@ use amethyst::{
     prelude::*,
     ecs::prelude::*,
     core::Transform,
-    core::cgmath::{Vector3, Deg, InnerSpace},
+    core::nalgebra::{Vector3, Isometry3},
     assets::{Loader, AssetStorage},
-    renderer::{Shape, MeshHandle, DebugLinesComponent, JpgFormat, Texture, TextureHandle, TriplanarMaterial, Rgba, Projection, SkyboxColor,
-               PosNormTex, PosNormTangTex, Camera, AmbientColor, Material, MaterialDefaults, TextureMetadata, ObjFormat, Light, DirectionalLight, PointLight},
+    renderer::{MeshHandle, DebugLinesComponent, JpgFormat, Texture, TextureHandle, TriplanarMaterial, Rgba, Projection, SkyboxColor,
+               PosNormTex, Camera, AmbientColor, Material, MaterialDefaults, TextureMetadata, ObjFormat, Light, DirectionalLight, PointLight},
 };
 use gilrs::Event;
-use nalgebra::geometry::{Isometry3};
 use ncollide3d::{
     shape::TriMesh,
     bounding_volume::{AABB, HasBoundingVolume, BoundingVolume}
 };
 
 use rand::{thread_rng, Rng};
+use std::f32::consts::*;
 
 mod proc_geom;
 
@@ -94,8 +94,8 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         };
 
         let mut trans = Transform::default();
-        trans.scale = Vector3::new(0.3, 0.3, 0.3);
-        trans.translation = Vector3::new(5.0, 30.0, 5.0);
+        trans.set_scale(0.3, 0.3, 0.3);
+        trans.set_position(Vector3::new(5.0, 30.0, 5.0));
 
         world.add_resource(
             Vec::<Event>::new(),
@@ -153,7 +153,7 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
                     &cs.controls[i + 1][j + 1],
                     &cs.controls[i + 1][j]
                 );
-                let mesh = create_mesh(world, patch.rasterize(2));
+                let mesh = create_mesh(world, patch.rasterize(32));
                 let mut collision_mesh = patch.collision_mesh(16, 8.0);
 
                 let mtl_xy = {
@@ -200,8 +200,8 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
                 };
 
                 let mut trans = Transform::default();
-                trans.scale = Vector3::new(8.0, 8.0, 8.0);
-                trans.translation.x = 0.0;
+                trans.set_scale(8.0, 8.0, 8.0);
+                trans.set_x(0.0);
                 let mut bounding_box: AABB<f32> = collision_mesh.clone().bounding_volume(&Isometry3::identity());
                 bounding_box.loosen(3.0);
 
@@ -249,7 +249,7 @@ fn initialize_camera(world: &mut World, target: Entity) {
 
     world
         .create_entity()
-        .with(Camera::from(Projection::perspective(1.0, Deg(60.0))))
+        .with(Camera::from(Projection::perspective(1.0, 60.0 * PI / 180.0)))
         .with(transform)
         .with(Follow { entity: target })
         .build();
