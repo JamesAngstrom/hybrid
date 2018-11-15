@@ -9,6 +9,8 @@ use amethyst::{
 };
 use glm;
 
+use std::time::Instant;
+
 use hybrid::Follow;
 
 pub struct FollowSystem {
@@ -34,6 +36,8 @@ impl<'s> System<'s> for FollowSystem {
     }
 
     fn run(&mut self, (followers, cameras, mut transforms, time): Self::SystemData) {
+        let start = Instant::now();
+
         let point = match self.target {
             None => Vector3::new(0.0, 0.0, 0.0),
             Some(target) => {
@@ -55,20 +59,10 @@ impl<'s> System<'s> for FollowSystem {
                 let eye = transform.translation();
                 (point - eye).normalize()
             };
-            // let look = Quaternion::look_at(dir, Vector3::new(0.0, 1.0, 0.0));
-            // transform.rotation = Quaternion::new(look.v.y, look.v.z, look.s, -look.v.x);
-            // let correct = Quaternion::new(look.v.y, look.v.z, look.s, -look.v.x);
-
-            // let glm_lh = glm::quat_look_at_lh(&(glm::vec3(dir.x, dir.y, dir.z) * -1.0), &glm::vec3(0.0, 0.0, 1.0));
-            // let lh = Quaternion::new(-glm_lh.coords.y, -glm_lh.coords.z, -glm_lh.coords.w, glm_lh.coords.x);
 
             transform.look_at(point, Vector3::new(0.0, 1.0, 0.0));
-            //let q = UnitQuaternion::look_at_rh(&dir, &Vector3::new(0.0, 1.0, 0.0));
-            //transform.set_rotation(Unit::new_unchecked(Quaternion::new(q.coords.w, -q.coords.x, -q.coords.y, -q.coords.z)));
-            // let rh = Quaternion::new(glm_rh.coords.w, -glm_rh.coords.x, -glm_rh.coords.y, -glm_rh.coords.z);
-
-            //println!("{:?}, {:?}, {:?}", correct, rh, lh); // All the same
-            // transform.rotation = correct //Quaternion::new(look.v.y, look.v.z, look.s, -look.v.x);
         }
+        let elapsed = start.elapsed();
+        println!("Camera movement system: {:?}", elapsed);
     }
 }

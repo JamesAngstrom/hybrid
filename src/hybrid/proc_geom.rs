@@ -206,7 +206,6 @@ impl BicubicPatch {
         for (p, u, v) in self.rasterize_with(res, |p, _, u, v| (p, u, v)) {
             points.push(Point3::new(scale * p.x, scale * p.y, scale * p.z));
             if i % 3 == 0 {
-                println!("Triangle: {}", i);
                 indices.push(Point3::new(i, i + 1, i + 2));
             };
             i = i + 1;
@@ -217,7 +216,7 @@ impl BicubicPatch {
     }
 }
 
-const SIZE: usize = 6;
+const SIZE: usize = 64;
 
 pub struct ControlSurface {
     pub controls: [[ControlPlane; SIZE]; SIZE]

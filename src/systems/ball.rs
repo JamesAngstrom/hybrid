@@ -14,6 +14,7 @@ use glm;
 use ncollide3d::query::{Ray, RayCast, PointQuery};
 
 use std::f32::consts::*;
+use std::time::Instant;
 
 use hybrid::Ball;
 use hybrid::Chunk;
@@ -61,10 +62,12 @@ impl<'s> System<'s> for BallSystem {
     }
 
     fn run(&mut self, (balls, chunks, mut transforms, mut debuglines, mut events, time): Self::SystemData) {
+        let start = Instant::now();
+
         for (_ball, mut transform, mut debugline) in (&balls, &mut transforms, &mut debuglines).join() {
+            let start = Instant::now();
 
             for event in events.drain(..) {
-                //println!("Recieved {:?}", event);
                 match event {
                     Event { id: _, event: ButtonPressed(South, _), time: _ } => {
                         transform.translate_x(-1.0);
@@ -82,7 +85,13 @@ impl<'s> System<'s> for BallSystem {
                 }
             };
 
+            let elapsed = start.elapsed();
+            println!("* Input: {:?}", elapsed);
+
+            let start = Instant::now();
+
             let mut intersection_point = None;
+
             for chunk in (&chunks).join() {
                 let point = Point::from(*transform.translation());
 
@@ -110,6 +119,12 @@ impl<'s> System<'s> for BallSystem {
                 if intersection_point.is_some() { break };
             };
 
+            let elapsed = start.elapsed();
+            // debug format:
+            println!("* Collision: {:?}", elapsed);
+
+            let start = Instant::now();
+
             const SPEED: f32 = 20.0;
             const MASS: f32 = 80.0;
             const DRAG_COEFFICIENT: f32 = 1.0;
@@ -128,7 +143,6 @@ impl<'s> System<'s> for BallSystem {
                 None => {
                     // Player is not within any surface collision box, and free-falling
                     let accel = (MASS * gravity + drag) / MASS;
-                    println!("{:?} {:?}", drag, accel);
                     self.velocity += accel * time.delta_seconds();
                     transform.translate(self.velocity);
                 },
@@ -139,7 +153,6 @@ impl<'s> System<'s> for BallSystem {
                     if height >= 0.0 {
                         let squish = if height <= SQUISHYNESS { f32::sin(height * PI / (SQUISHYNESS * 2.0)) } else { 1.0 };
                         let accel = (MASS * gravity + drag) / MASS;
-                        println!("{:?} {:?} {:?}", squish, drag, accel);
                         self.velocity += accel * (squish * 0.01) * time.delta_seconds();
                         transform.translate(self.velocity);
                     };
@@ -150,7 +163,7 @@ impl<'s> System<'s> for BallSystem {
                     //transform.translation.x = p.x;
                     //transform.translation.y = p.y;
 
-                    debugline.clear();
+                    //debugline.clear();
 
                     let angle = glm::rotate_vec3(&(up.cross(&normal)), -(0.5 * PI), &normal);
                     let rotation = glm::quat_angle_axis(self.rotation, &normal);
@@ -160,18 +173,25 @@ impl<'s> System<'s> for BallSystem {
 
                     transform.translate(dir * 0.2 * -dir.y);
 
-                    debugline.add_direction(Point3::new(p.x, p.y + 2.0, p.z), angle * 2.0, Rgba::green());
-                    debugline.add_direction(Point3::new(p.x, p.y + 2.0, p.z), angle * -2.0, Rgba::green());
-                    debugline.add_direction(Point3::new(p.x, p.y + 2.0, p.z), dir * 2.0, Rgba::red());
-                    debugline.add_direction(Point3::new(p.x, p.y + 2.0, p.z), dir * -2.0, Rgba::white());
-                    debugline.add_direction(Point3::new(p.x, p.y, p.z), normal * 5.0, Rgba::blue());
+                    //debugline.add_direction(Point3::new(p.x, p.y + 2.0, p.z), angle * 2.0, Rgba::green());
+                    //debugline.add_direction(Point3::new(p.x, p.y + 2.0, p.z), angle * -2.0, Rgba::green());
+                    //debugline.add_direction(Point3::new(p.x, p.y + 2.0, p.z), dir * 2.0, Rgba::red());
+                    //debugline.add_direction(Point3::new(p.x, p.y + 2.0, p.z), dir * -2.0, Rgba::white());
+                    //debugline.add_direction(Point3::new(p.x, p.y, p.z), normal * 5.0, Rgba::blue());
 
-                    transform.look_at(Vector3::new(p.x, p.y, p.z) + angle, up);
+                    transform.look_at(Vector3::new(p.x, p.y, p.z) + dir, up);
                 }
             }
 
             transform.translate_x(self.right_stick.x * SPEED * time.delta_seconds());
             transform.translate_z(-self.right_stick.y * SPEED * time.delta_seconds());
+
+            let elapsed = start.elapsed();
+            println!("* Physics: {:?}", elapsed);
         }
+
+        let elapsed = start.elapsed();
+        println!("Player movement system: {:?}", elapsed);
+
     }
 }

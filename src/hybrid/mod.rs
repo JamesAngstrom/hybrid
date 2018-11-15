@@ -117,34 +117,49 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
         // Control Surface
         let cs = proc_geom::ControlSurface::new();
 
-        // let mesh = create_mesh(world, cs.rasterize());
+        let mtl_xy = {
+            let loader = world.read_resource::<Loader>();
+            let mat_defaults = world.read_resource::<MaterialDefaults>();
 
-        // let mtl = {
-        //     let loader = world.read_resource::<Loader>();
-        //     let mat_defaults = world.read_resource::<MaterialDefaults>();
+            let mut rng = thread_rng();
+            let albedo = load_texture("texture/Rock08_col.jpg", world);
 
-        //     let albedo = loader.load_from_data([1.0, 1.0, 0.0, 0.5].into(), (), &world.read_resource());
+            Material {
+                albedo,
+                ..mat_defaults.0.clone()
+            }
+        };
+        let mtl_yz = {
+            let loader = world.read_resource::<Loader>();
+            let mat_defaults = world.read_resource::<MaterialDefaults>();
 
-        //     Material {
-        //         albedo,
-        //         ..mat_defaults.0.clone()
-        //     }
-        // };
+            let mut rng = thread_rng();
+            let albedo = load_texture("texture/Rock07_col.jpg", world);
+            let emission = load_texture("texture/noise.jpg", world);
 
-        // let mut trans = Transform::default();
-        // trans.scale = Vector3::new(8.0, 8.0, 8.0);
-        // trans.translation.x = -10.0;
+            Material {
+                albedo,
+                emission,
+                ..mat_defaults.0.clone()
+            }
+        };
+        let mtl_xz = {
+            let loader = world.read_resource::<Loader>();
+            let mat_defaults = world.read_resource::<MaterialDefaults>();
 
-        // world
-        //     .create_entity()
-        //     .with(mesh)
-        //     .with(mtl)
-        //     .with(trans)
-        //     .build();
+            let mut rng = thread_rng();
+            let albedo = load_texture("texture/Ice04_col.jpg", world);
+            let emission = load_texture("texture/Snow01_col.jpg", world);
 
+            Material {
+                albedo,
+                emission,
+                ..mat_defaults.0.clone()
+            }
+        };
         // Create grid of bicubic patches
-        for i in 0..5 {
-            for j in 0..5 {
+        for i in 0..63 {
+            for j in 0..63 {
                 println!("i: {} j: {}", i, j);
 
                 let patch = proc_geom::BicubicPatch::new(
@@ -153,51 +168,8 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
                     &cs.controls[i + 1][j + 1],
                     &cs.controls[i + 1][j]
                 );
-                let mesh = create_mesh(world, patch.rasterize(32));
-                let mut collision_mesh = patch.collision_mesh(16, 8.0);
-
-                let mtl_xy = {
-                    let loader = world.read_resource::<Loader>();
-                    let mat_defaults = world.read_resource::<MaterialDefaults>();
-
-                    let mut rng = thread_rng();
-                    let albedo = load_texture("texture/Rock08_col.jpg", world);
-
-                    Material {
-                        albedo,
-                        ..mat_defaults.0.clone()
-                    }
-                };
-                let mtl_yz = {
-                    let loader = world.read_resource::<Loader>();
-                    let mat_defaults = world.read_resource::<MaterialDefaults>();
-
-                    let mut rng = thread_rng();
-                    let albedo = load_texture("texture/Rock07_col.jpg", world);
-                    let emission = load_texture("texture/noise.jpg", world);
-
-                    Material {
-                        albedo,
-                        emission,
-                        ..mat_defaults.0.clone()
-                    }
-                };
-                let mtl_xz = {
-                    let loader = world.read_resource::<Loader>();
-                    let mat_defaults = world.read_resource::<MaterialDefaults>();
-
-                    let mut rng = thread_rng();
-                    let albedo = load_texture("texture/Ice04_col.jpg", world);
-                    let emission = load_texture("texture/Snow01_col.jpg", world);
-
-                    //let albedo = loader.load_from_data([rng.gen_range(0.4, 0.6), rng.gen_range(0.0, 0.4), rng.gen_range(0.0, 0.4), 0.0].into(), (), &world.read_resource());
-
-                    Material {
-                        albedo,
-                        emission,
-                        ..mat_defaults.0.clone()
-                    }
-                };
+                let mesh = create_mesh(world, patch.rasterize(2));
+                let mut collision_mesh = patch.collision_mesh(8, 8.0);
 
                 let mut trans = Transform::default();
                 trans.set_scale(8.0, 8.0, 8.0);
@@ -209,9 +181,9 @@ impl<'a, 'b> State<GameData<'a, 'b>, Event> for Hybrid {
                     .create_entity()
                     .with(mesh)
                     .with(TriplanarMaterial {
-                        mtl_xy: mtl_xy,
-                        mtl_yz: mtl_yz,
-                        mtl_xz: mtl_xz
+                        mtl_xy: mtl_xy.clone(),
+                        mtl_yz: mtl_yz.clone(),
+                        mtl_xz: mtl_xz.clone()
                     })
                     .with(trans)
                     .with(Chunk {
